@@ -27,7 +27,7 @@
 ### 5. Custom Spatial Grid Index ✅
 **Class: SpatialGridIndex**
 - Grid-based spatial indexing with 1° cell size
-- O(1) cell lookup performance
+- Efficient grid cell lookup
 - Methods:
   - `getCellKey(lat, lng)`: Converts coordinates to grid cell key
   - `addCity(city)`: Adds city to spatial index
@@ -78,16 +78,16 @@
 
 ### 9. Dataset Support ✅
 **20,000+ Cities:**
-- 49 major world cities with real population data
+- 50 major world cities with real population data
 - 420 generated cities around each major city
-- Total: 49 + (49 × 420) = 20,629 cities
+- Total: Approximately 21,000 cities (some filtered for invalid coordinates)
 - Population range: 10,000 to 37,400,000
 - Realistic geographic distribution
 
 **Major Cities Included:**
 Tokyo, Delhi, Shanghai, São Paulo, Mexico City, Cairo, Mumbai, Beijing, 
 Dhaka, Osaka, New York, Karachi, Buenos Aires, Istanbul, London, Paris, 
-Moscow, Bangkok, Singapore, Sydney, Toronto, and 28 more
+Moscow, Bangkok, Singapore, Sydney, Toronto, and more
 
 ## Technical Architecture
 
@@ -113,7 +113,7 @@ Moscow, Bangkok, Singapore, Sydney, Toronto, and 28 more
 ## File Structure
 ```
 world-population-map/
-├── index.html          # Single-file application (468 lines)
+├── index.html          # Single-file application (499 lines)
 ├── README.md           # User documentation
 ├── .gitignore          # Git ignore patterns
 └── IMPLEMENTATION.md   # This file

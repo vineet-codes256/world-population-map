@@ -113,7 +113,28 @@
     <script src="https://d3js.org/d3.v7.min.js"></script>
     
     <script>
+        // World population baseline (2024-2025 estimate)
+        const WORLD_POPULATION = 8300000000; // 8.3 billion
+        
+        // Heatmap configuration for consistent visualization
+        const HEATMAP_CONFIG = {
+            radius: 15,
+            blur: 20,
+            maxZoom: 17,
+            gradient: {
+                0.0: 'blue',
+                0.5: 'lime',
+                0.7: 'yellow',
+                1.0: 'red'
+            }
+        };
+        
         // Spatial Grid Index for efficient population calculations
+        /**
+         * Grid-based spatial indexing system for efficient city queries
+         * Divides the world into grid cells for O(k) query complexity
+         * where k = number of cities in candidate cells
+         */
         class SpatialGridIndex {
             constructor(cellSize = 1) {
                 this.cellSize = cellSize;
@@ -121,14 +142,22 @@
                 this.cities = [];
             }
             
-            // Get grid cell key for a coordinate
+            /**
+             * Get grid cell key for a coordinate
+             * @param {number} lat - Latitude (-90 to 90)
+             * @param {number} lng - Longitude (-180 to 180)
+             * @returns {string} Cell key in format "cellLat,cellLng"
+             */
             getCellKey(lat, lng) {
                 const cellLat = Math.floor(lat / this.cellSize);
                 const cellLng = Math.floor(lng / this.cellSize);
                 return `${cellLat},${cellLng}`;
             }
             
-            // Add a city to the index
+            /**
+             * Add a city to the spatial index
+             * @param {Object} city - City object with lat, lng, population, name
+             */
             addCity(city) {
                 this.cities.push(city);
                 const key = this.getCellKey(city.lat, city.lng);
@@ -139,7 +168,13 @@
                 this.grid.get(key).push(city);
             }
             
-            // Get all cities within a radius of a point
+            /**
+             * Get all cities within a radius of a point
+             * @param {number} centerLat - Center point latitude
+             * @param {number} centerLng - Center point longitude
+             * @param {number} radiusKm - Search radius in kilometers
+             * @returns {Array} Array of city objects within the radius
+             */
             getCitiesInRadius(centerLat, centerLng, radiusKm) {
                 const result = [];
                 
@@ -172,7 +207,14 @@
                 return result;
             }
             
-            // Haversine formula for distance calculation
+            /**
+             * Calculate distance between two points using Haversine formula
+             * @param {number} lat1 - First point latitude
+             * @param {number} lng1 - First point longitude
+             * @param {number} lat2 - Second point latitude
+             * @param {number} lng2 - Second point longitude
+             * @returns {number} Distance in kilometers
+             */
             getDistance(lat1, lng1, lat2, lng2) {
                 const R = 6371; // Earth's radius in km
                 const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -228,31 +270,25 @@
                         
                         spatialIndex.addCity(cityObj);
                         
-                        // Add to heatmap data (weight by population)
-                        const intensity = Math.log(population + 1) / 20; // logarithmic scale
+                        // Add to heatmap data with logarithmic scaling for better visualization
+                        // Math.log(pop + 1) provides natural logarithm, +1 prevents log(0)
+                        // Division by 20 normalizes intensity to 0-1 range for typical populations
+                        const intensity = Math.log(population + 1) / 20;
                         heatData.push([lat, lng, intensity]);
                     }
                 });
                 
                 // Create heatmap
                 if (heatData.length > 0) {
-                    heatLayer = L.heatLayer(heatData, {
-                        radius: 15,
-                        blur: 20,
-                        maxZoom: 17,
-                        gradient: {
-                            0.0: 'blue',
-                            0.5: 'lime',
-                            0.7: 'yellow',
-                            1.0: 'red'
-                        }
-                    }).addTo(map);
+                    heatLayer = L.heatLayer(heatData, HEATMAP_CONFIG).addTo(map);
                 }
                 
                 document.getElementById('loading').classList.add('hidden');
                 console.log(`Spatial index built with ${spatialIndex.cities.length} cities`);
             }).catch(error => {
                 console.error('Error loading city data:', error);
+                // Update loading message to inform user
+                document.getElementById('loading').textContent = 'Loading alternative dataset...';
                 // Try alternative dataset
                 loadAlternativeCityData();
             });
@@ -261,6 +297,13 @@
         // Alternative dataset loader with simulated data
         function loadAlternativeCityData() {
             console.log('Using alternative dataset with major cities');
+            
+            // Notify user about data source
+            const loadingDiv = document.getElementById('loading');
+            loadingDiv.textContent = 'Using generated dataset with 20,000+ cities';
+            setTimeout(() => {
+                loadingDiv.classList.add('hidden');
+            }, 2000);
             
             // Major world cities with populations (sample data)
             const majorCities = [
@@ -348,26 +391,14 @@
             });
             
             // Create heatmap
-            heatLayer = L.heatLayer(heatData, {
-                radius: 15,
-                blur: 20,
-                maxZoom: 17,
-                gradient: {
-                    0.0: 'blue',
-                    0.5: 'lime',
-                    0.7: 'yellow',
-                    1.0: 'red'
-                }
-            }).addTo(map);
+            heatLayer = L.heatLayer(heatData, HEATMAP_CONFIG).addTo(map);
             
-            document.getElementById('loading').classList.add('hidden');
             console.log(`Spatial index built with ${spatialIndex.cities.length} cities`);
         }
         
         // Update HUD with statistics
         function updateHUD(totalPop, cityCount) {
-            const worldPop = 8300000000; // 8.3 billion
-            const percent = (totalPop / worldPop) * 100;
+            const percent = (totalPop / WORLD_POPULATION) * 100;
             
             document.getElementById('totalPop').textContent = totalPop.toLocaleString();
             document.getElementById('cityCount').textContent = cityCount.toLocaleString();
