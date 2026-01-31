@@ -87,7 +87,11 @@
     <div id="hud">
         <h3>Population Statistics</h3>
         <div class="stat-row">
-            <span class="stat-label">Total Population:</span>
+            <span class="stat-label">Live World Population:</span>
+            <span class="stat-value" id="liveWorldPop">--</span>
+        </div>
+        <div class="stat-row">
+            <span class="stat-label">Selection Population:</span>
             <span class="stat-value" id="totalPop">0</span>
         </div>
         <div class="stat-row">
@@ -95,7 +99,7 @@
             <span class="stat-value" id="cityCount">0</span>
         </div>
         <div class="stat-row">
-            <span class="stat-label">% of World (8.3B):</span>
+            <span class="stat-label">% of World:</span>
             <span class="stat-value" id="worldPercent">0.00%</span>
         </div>
     </div>
@@ -259,58 +263,67 @@
         
         // Load city data using D3
         function loadCityData() {
-            // Public world cities dataset with lat/lng
-            const dataUrl = 'https://cdn.jsdelivr.net/gh/icyrockcom/country-state-city@master/data/worldcities.csv';
+            // Try real world cities dataset first
+            const dataUrls = [
+                'https://cdn.jsdelivr.net/gh/icyrockcom/country-state-city@master/data/worldcities.csv',
+                'https://raw.githubusercontent.com/datasets/world-cities/master/data/world-cities.csv'
+            ];
             
-            d3.csv(dataUrl).then(function(data) {
-                // Process and index cities
-                const heatData = [];
-                let validCount = 0;
-                data.forEach((city) => {
-                    // Try multiple possible column names for coordinates
-                    const lat = parseFloat(city.lat || city.latitude || city.Latitude);
-                    const lng = parseFloat(city.lng || city.longitude || city.Longitude);
-                    const population = parseInt(city.population || city.pop || city.Population || 100000, 10); // default pop if not available
-                    
-                    if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-                        validCount++;
-                        const cityObj = {
-                            name: city.city || city.name || city.city_ascii || city.City || 'Unknown',
-                            lat: lat,
-                            lng: lng,
-                            population: population
-                        };
-                        
-                        spatialIndex.addCity(cityObj);
-                        
-                        // Add to heatmap data with logarithmic scaling for better visualization
-                        // Math.log(pop + 1) provides natural logarithm, +1 prevents log(0)
-                        // Division by 20 normalizes intensity to 0-1 range for typical populations
-                        const intensity = Math.log(population + 1) / 20;
-                        heatData.push([lat, lng, intensity]);
-                    }
-                });
-                
-                // If parsing failed, fall back to generated dataset
-                if (validCount === 0) {
-                    document.getElementById('loading').textContent = 'Loading alternative dataset...';
+            function attemptLoad(urlIndex) {
+                if (urlIndex >= dataUrls.length) {
+                    // Fall back to generated data
+                    document.getElementById('loading').textContent = 'Using generated dataset...';
                     loadAlternativeCityData();
                     return;
                 }
                 
-                // Create heatmap
-                if (heatData.length > 0) {
-                    heatLayer = L.heatLayer(heatData, HEATMAP_CONFIG).addTo(map);
-                }
-                
-                document.getElementById('loading').classList.add('hidden');
-            }).catch(error => {
-                console.error('Error loading city data:', error);
-                // Update loading message to inform user
-                document.getElementById('loading').textContent = 'Loading alternative dataset...';
-                // Try alternative dataset
-                loadAlternativeCityData();
-            });
+                const dataUrl = dataUrls[urlIndex];
+                d3.csv(dataUrl).then(function(data) {
+                    // Process and index cities
+                    const heatData = [];
+                    let validCount = 0;
+                    data.forEach((city) => {
+                        // Try multiple possible column names for coordinates
+                        const lat = parseFloat(city.lat || city.latitude || city.Latitude);
+                        const lng = parseFloat(city.lng || city.longitude || city.Longitude);
+                        const population = parseInt(city.population || city.pop || city.Population || 100000, 10); // default pop if not available
+                        
+                        if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+                            validCount++;
+                            const cityObj = {
+                                name: city.city || city.name || city.city_ascii || city.City || 'Unknown',
+                                lat: lat,
+                                lng: lng,
+                                population: population
+                            };
+                            
+                            spatialIndex.addCity(cityObj);
+                            
+                            // Add to heatmap data with logarithmic scaling for better visualization
+                            const intensity = Math.log(population + 1) / 20;
+                            heatData.push([lat, lng, intensity]);
+                        }
+                    });
+                    
+                    // If parsing failed, try next URL or fall back
+                    if (validCount === 0) {
+                        attemptLoad(urlIndex + 1);
+                        return;
+                    }
+                    
+                    // Create heatmap
+                    if (heatData.length > 0) {
+                        heatLayer = L.heatLayer(heatData, HEATMAP_CONFIG).addTo(map);
+                    }
+                    
+                    document.getElementById('loading').classList.add('hidden');
+                }).catch(error => {
+                    // Try next URL
+                    attemptLoad(urlIndex + 1);
+                });
+            }
+            
+            attemptLoad(0);
         }
         
         // Alternative dataset loader with simulated data
@@ -418,6 +431,10 @@
         // Update HUD with statistics
         function updateHUD(totalPop, cityCount) {
             const percent = (totalPop / WORLD_POPULATION) * 100;
+            
+            // Format live world population
+            const livePopDisplay = WORLD_POPULATION.toLocaleString();
+            document.getElementById('liveWorldPop').textContent = livePopDisplay;
             
             document.getElementById('totalPop').textContent = totalPop.toLocaleString();
             document.getElementById('cityCount').textContent = cityCount.toLocaleString();
