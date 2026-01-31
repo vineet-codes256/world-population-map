@@ -2,8 +2,7 @@ from http.server import BaseHTTPRequestHandler
 import json
 from datetime import datetime
 
-# For production, you'd use: from worldometer.world import WorldCounters
-# For now, we'll return a realistic estimate that updates based on time
+# Returns a realistic estimate that updates based on time
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
