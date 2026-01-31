@@ -113,8 +113,20 @@
     <script src="https://d3js.org/d3.v7.min.js"></script>
     
     <script>
-        // World population baseline (2024-2025 estimate)
-        const WORLD_POPULATION = 8300000000; // 8.3 billion
+        // World population baseline (will fetch live data)
+        let WORLD_POPULATION = 8300000000; // 8.3 billion (fallback)
+        
+        // Fetch live world population from API
+        async function fetchLivePopulation() {
+            try {
+                const response = await fetch('/api/population');
+                const data = await response.json();
+                WORLD_POPULATION = data.world_population;
+                console.log(`Live world population: ${WORLD_POPULATION}`);
+            } catch (error) {
+                console.warn('Could not fetch live population, using baseline:', error);
+            }
+        }
         
         // Heatmap configuration for consistent visualization
         const HEATMAP_CONFIG = {
@@ -514,7 +526,8 @@
             recalculateAllCircles();
         });
         
-        // Load the data
+        // Load the data and fetch live population
+        fetchLivePopulation();
         loadCityData();
     </script>
 </body>
