@@ -62,6 +62,78 @@
             color: #00d4ff;
         }
 
+            #heatmapControls {
+                position: absolute;
+                bottom: 20px;
+                left: 20px;
+                background: rgba(0, 0, 0, 0.85);
+                padding: 15px;
+                border-radius: 8px;
+                z-index: 1000;
+                min-width: 220px;
+                box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+            }
+
+            #heatmapControls h4 {
+                margin: 0 0 12px 0;
+                color: #00d4ff;
+                font-size: 14px;
+                border-bottom: 1px solid #00d4ff;
+                padding-bottom: 8px;
+            }
+
+            .control-row {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin: 10px 0;
+                font-size: 12px;
+            }
+
+            .control-row label {
+                color: #aaa;
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                cursor: pointer;
+            }
+
+            .control-row input[type="checkbox"] {
+                cursor: pointer;
+                width: 16px;
+                height: 16px;
+            }
+
+            .control-row input[type="range"] {
+                flex: 1;
+                margin-left: 8px;
+                cursor: pointer;
+            }
+
+            .density-legend {
+                margin-top: 12px;
+                padding-top: 12px;
+                border-top: 1px solid #444;
+                font-size: 11px;
+                color: #aaa;
+            }
+
+            .density-bar {
+                display: flex;
+                height: 20px;
+                margin: 5px 0;
+                border-radius: 3px;
+                background: linear-gradient(to right, #0047AB, #1E90FF, #00FF00, #FFFF00, #FF4500, #FF0000);
+            }
+
+            .density-labels {
+                display: flex;
+                justify-content: space-between;
+                font-size: 10px;
+                color: #888;
+                margin-top: 2px;
+            }
+
         #loading {
             position: absolute;
             top: 50%;
@@ -106,6 +178,38 @@
         </div>
     </div>
 
+    <div id="heatmapControls">
+        <h4>🌍 Density Heatmap</h4>
+        <div class="control-row">
+            <label>
+                <input type="checkbox" id="toggleHeatmap" checked>
+                <span>Show Heatmap</span>
+            </label>
+        </div>
+        <div class="control-row">
+            <label for="heatmapOpacity">Opacity:</label>
+            <input type="range" id="heatmapOpacity" min="0" max="100" value="70">
+        </div>
+        <div class="control-row">
+            <label>
+                <input type="checkbox" id="toggleDensityMetrics" checked>
+                <span>Show Metrics</span>
+            </label>
+        </div>
+        <div class="density-legend">
+            <strong>Density Scale</strong>
+            <div class="density-bar"></div>
+            <div class="density-labels">
+                <span>Low</span>
+                <span>High</span>
+            </div>
+            <div id="densityStats" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #444;">
+                <div style="color: #00d4ff; font-size: 11px;"><strong>Selection Density:</strong></div>
+                <div id="densityValue" style="color: #fff; font-size: 12px;">-- cities/km²</div>
+            </div>
+        </div>
+    </div>
+
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
@@ -115,29 +219,9 @@
     <!-- Leaflet.heat JS -->
     <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 
-    <!-- D3.js -->
-    <script src="https://d3js.org/d3.v7.min.js"></script>
-
     <script>
-        // World population baseline (will fetch live data)
-        let WORLD_POPULATION = 8300000000; // 8.3 billion (fallback)
-        // Format live world population
-        document.getElementById('liveWorldPop').textContent = WORLD_POPULATION.toLocaleString();
+        let WORLD_POPULATION = 8_437_741_000;
 
-        // Fetch live world population from API
-        async function fetchLivePopulation() {
-            try {
-                const response = await fetch('/api/population');
-                const data = await response.json();
-                WORLD_POPULATION = data.world_population;
-
-                // Format live world population
-                document.getElementById('liveWorldPop').textContent = WORLD_POPULATION.toLocaleString();
-                console.log(`Live world population: ${WORLD_POPULATION}`);
-            } catch (error) {
-                console.warn('Could not fetch live population, using baseline:', error);
-            }
-        }
 
         // Heatmap configuration for consistent visualization
         const HEATMAP_CONFIG = {
@@ -151,6 +235,22 @@
                 1.0: 'red'
             }
         };
+
+            // Enhanced heatmap configuration with realistic density gradient
+            const HEATMAP_CONFIG_ENHANCED = {
+                radius: 20,
+                blur: 25,
+                maxZoom: 18,
+                max: 1.0,
+                gradient: {
+                    0.0: '#0047AB',   // Deep Blue - very low density
+                    0.2: '#1E90FF',   // Dodger Blue - low density
+                    0.4: '#00FF00',   // Green - moderate density
+                    0.6: '#FFFF00',   // Yellow - medium-high density
+                    0.8: '#FF8C00',   // Dark Orange - high density
+                    1.0: '#FF0000'    // Red - extreme density
+                }
+            };
 
         // Spatial Grid Index for efficient population calculations
         /**
@@ -306,10 +406,8 @@
                     }
                     
                     document.getElementById('loading').classList.add('hidden');
-                    console.log(`Loaded ${validCount} cities with accurate population data`);
                 })
                 .catch(error => {
-                    console.error('Error loading city data from backend:', error);
                     document.getElementById('loading').textContent = 'Loading alternative dataset...';
                     loadAlternativeCityData();
                 });
@@ -317,8 +415,6 @@
 
         // Alternative dataset loader with simulated data
         function loadAlternativeCityData() {
-            console.log('Using alternative dataset with major cities');
-
             // Notify user about data source
             const loadingDiv = document.getElementById('loading');
             loadingDiv.textContent = 'Using generated dataset with 20,000+ cities';
@@ -401,7 +497,7 @@
                 }
             });
 
-            console.log(`Generated ${allCities.length} cities`);
+
 
             // Index cities and create heatmap
             const heatData = [];
@@ -413,8 +509,6 @@
 
             // Create heatmap
             heatLayer = L.heatLayer(heatData, HEATMAP_CONFIG).addTo(map);
-
-            console.log(`Spatial index built with ${spatialIndex.cities.length} cities`);
         }
 
         // Update HUD with statistics
@@ -513,8 +607,17 @@
             recalculateAllCircles();
         });
 
-        // Load the data and fetch live population
-        fetchLivePopulation();
+        // Load data on page load
+        (async () => {
+            try {
+                const response = await fetch('/api/population');
+                const data = await response.json();
+                WORLD_POPULATION = data.world_population;
+                document.getElementById('liveWorldPop').textContent = WORLD_POPULATION.toLocaleString();
+            } catch (e) {
+                document.getElementById('liveWorldPop').textContent = WORLD_POPULATION.toLocaleString();
+            }
+        })();
         loadCityData();
     </script>
 </body>
