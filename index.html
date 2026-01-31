@@ -364,6 +364,7 @@
 
         // Heatmap layer
         let heatLayer = null;
+        let heatmapVisible = true;
 
         // Store for drawn circles
         const drawnCircles = new Map();
@@ -403,7 +404,7 @@
                     // Create heatmap
                     if (heatData.length > 0) {
                         heatLayer = L.heatLayer(heatData, HEATMAP_CONFIG_ENHANCED).addTo(map);
-                        heatLayer.setOpacity(0.85);
+                        applyHeatmapVisibility();
                     }
                     
                     document.getElementById('loading').classList.add('hidden');
@@ -510,7 +511,29 @@
 
             // Create heatmap
             heatLayer = L.heatLayer(heatData, HEATMAP_CONFIG_ENHANCED).addTo(map);
-            heatLayer.setOpacity(0.85);
+            applyHeatmapVisibility();
+        }
+
+        function applyHeatmapVisibility() {
+            if (!heatLayer) return;
+
+            const toggle = document.getElementById('toggleHeatmap');
+            const opacitySlider = document.getElementById('heatmapOpacity');
+
+            const opacity = opacitySlider ? (opacitySlider.value / 100) : 0.85;
+            heatLayer.setOpacity(opacity);
+
+            if (toggle && !toggle.checked) {
+                if (map.hasLayer(heatLayer)) {
+                    map.removeLayer(heatLayer);
+                }
+                heatmapVisible = false;
+            } else {
+                if (!map.hasLayer(heatLayer)) {
+                    map.addLayer(heatLayer);
+                }
+                heatmapVisible = true;
+            }
         }
 
         // Update HUD with statistics
@@ -607,6 +630,25 @@
                 drawnCircles.delete(layer._leaflet_id);
             });
             recalculateAllCircles();
+        });
+
+        // Heatmap control panel event listeners
+        document.getElementById('toggleHeatmap').addEventListener('change', function () {
+            applyHeatmapVisibility();
+        });
+
+        document.getElementById('heatmapOpacity').addEventListener('input', function () {
+            if (heatLayer) {
+                heatLayer.setOpacity(this.value / 100);
+            }
+        });
+
+        document.getElementById('toggleDensityMetrics').addEventListener('change', function () {
+            if (!this.checked) {
+                document.getElementById('densityValue').textContent = '-- cities/km²';
+            } else {
+                recalculateAllCircles();
+            }
         });
 
         // Load data on page load
