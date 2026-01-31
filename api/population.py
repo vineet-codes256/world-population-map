@@ -1,20 +1,76 @@
 from http.server import BaseHTTPRequestHandler
 import json
 from datetime import datetime
+import urllib.request
+import io
+import csv
 
-# Returns a realistic estimate that updates based on time
+# Cache for city data
+_city_cache = None
+_cache_time = None
+
+def get_city_data():
+    """Fetch accurate city population data from GeoNames dataset."""
+    global _city_cache, _cache_time
+    
+    # Return cached data if available
+    if _city_cache is not None:
+        return _city_cache
+    
+    try:
+        # Fetch GeoNames dataset - comprehensive city data with accurate populations
+        url = 'https://raw.githubusercontent.com/datasets/geonames/master/data/geonames.csv'
+        with urllib.request.urlopen(url, timeout=10) as response:
+            csv_data = response.read().decode('utf-8')
+            
+        reader = csv.DictReader(io.StringIO(csv_data))
+        cities = []
+        
+        for row in reader:
+            try:
+                lat = float(row.get('Latitude', 0))
+                lng = float(row.get('Longitude', 0))
+                population = int(row.get('Population', 0))
+                
+                # Only include cities with valid coordinates and population > 0
+                if population > 0 and -90 <= lat <= 90 and -180 <= lng <= 180:
+                    cities.append({
+                        'name': row.get('Name', 'Unknown'),
+                        'lat': lat,
+                        'lng': lng,
+                        'population': population,
+                        'country': row.get('CountryCode', '')
+                    })
+            except (ValueError, TypeError):
+                continue
+        
+        _city_cache = cities
+        _cache_time = datetime.now()
+        return cities
+    except Exception as e:
+        print(f"Error fetching city data: {e}")
+        return []
 
 class handler(BaseHTTPRequestHandler):
     def do_GET(self):
+        if self.path == '/api/population':
+            self.handle_population()
+        elif self.path == '/api/cities':
+            self.handle_cities()
+        else:
+            self.send_response(404)
+            self.end_headers()
+    
+    def handle_population(self):
+        """Return live world population estimate."""
         # World population estimate (as of Jan 2026)
-        # Based on ~8.3B at start of 2024, growing at ~0.88% annually
-        base_population = 8_300_000_000
-        start_date = datetime(2024, 1, 1)
+        base_population = 8_437_741_000
+        start_date = datetime(2025, 1, 1)
         current_date = datetime.now()
         days_passed = (current_date - start_date).days
         
-        # Add ~81,000 births per day (roughly 2.5B births/year)
-        current_population = base_population + (days_passed * 181_000)  # net growth ~181k/day
+        # Net growth approximately 181,000 per day
+        current_population = base_population + (days_passed * 181_000)
         
         response = {
             "timestamp": datetime.now().isoformat(),
@@ -30,9 +86,26 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(response).encode())
     
+    def handle_cities(self):
+        """Return accurate city population data."""
+        cities = get_city_data()
+        
+        response = {
+            "timestamp": datetime.now().isoformat(),
+            "total_cities": len(cities),
+            "cities": cities
+        }
+        
+        self.send_response(200)
+        self.send_header('Content-type', 'application/json')
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.end_headers()
+        self.wfile.write(json.dumps(response).encode())
+    
     def do_OPTIONS(self):
         self.send_response(200)
         self.send_header('Access-Control-Allow-Origin', '*')
         self.send_header('Access-Control-Allow-Methods', 'GET, OPTIONS')
         self.send_header('Access-Control-Allow-Headers', 'Content-Type')
         self.end_headers()
+
