@@ -188,7 +188,7 @@
         </div>
         <div class="control-row">
             <label for="heatmapOpacity">Opacity:</label>
-            <input type="range" id="heatmapOpacity" min="0" max="100" value="70">
+            <input type="range" id="heatmapOpacity" min="0" max="100" value="85">
         </div>
         <div class="control-row">
             <label>
@@ -238,14 +238,14 @@
 
             // Enhanced heatmap configuration with realistic density gradient
             const HEATMAP_CONFIG_ENHANCED = {
-                radius: 20,
-                blur: 25,
+                radius: 28,
+                blur: 32,
                 maxZoom: 18,
                 max: 1.0,
                 gradient: {
-                    0.0: '#0047AB',   // Deep Blue - very low density
+                    0.0: '#003366',   // Deep Blue - very low density
                     0.2: '#1E90FF',   // Dodger Blue - low density
-                    0.4: '#00FF00',   // Green - moderate density
+                    0.4: '#00FF7F',   // Spring Green - moderate density
                     0.6: '#FFFF00',   // Yellow - medium-high density
                     0.8: '#FF8C00',   // Dark Orange - high density
                     1.0: '#FF0000'    // Red - extreme density
@@ -402,7 +402,8 @@
                     
                     // Create heatmap
                     if (heatData.length > 0) {
-                        heatLayer = L.heatLayer(heatData, HEATMAP_CONFIG).addTo(map);
+                        heatLayer = L.heatLayer(heatData, HEATMAP_CONFIG_ENHANCED).addTo(map);
+                        heatLayer.setOpacity(0.85);
                     }
                     
                     document.getElementById('loading').classList.add('hidden');
@@ -508,7 +509,8 @@
             });
 
             // Create heatmap
-            heatLayer = L.heatLayer(heatData, HEATMAP_CONFIG).addTo(map);
+            heatLayer = L.heatLayer(heatData, HEATMAP_CONFIG_ENHANCED).addTo(map);
+            heatLayer.setOpacity(0.85);
         }
 
         // Update HUD with statistics
