@@ -259,32 +259,23 @@
         
         // Load city data using D3
         function loadCityData() {
-            // Using a public world cities dataset
-            const dataUrl = 'https://raw.githubusercontent.com/datasets/world-cities/master/data/world-cities.csv';
+            // Public world cities dataset with lat/lng
+            const dataUrl = 'https://cdn.jsdelivr.net/gh/icyrockcom/country-state-city@master/data/worldcities.csv';
             
             d3.csv(dataUrl).then(function(data) {
-                console.log(`Loaded ${data.length} cities from primary source`);
-                console.log('First city object:', data[0]);
-                console.log('Column names:', Object.keys(data[0]));
-                
                 // Process and index cities
                 const heatData = [];
                 let validCount = 0;
-                data.forEach((city, index) => {
+                data.forEach((city) => {
                     // Try multiple possible column names for coordinates
-                    const lat = parseFloat(city.latitude || city.lat || city.Latitude || city.Lat);
-                    const lng = parseFloat(city.longitude || city.lng || city.Longitude || city.Lng);
-                    const population = parseInt(city.population || city.pop || city.Population || 100000); // default pop if not available
-                    
-                    // Only log first 3 cities for debugging
-                    if (index < 3) {
-                        console.log(`Processing city ${index}: lat=${lat}, lng=${lng}, pop=${population}, city=${city.name || city.city}`);
-                    }
+                    const lat = parseFloat(city.lat || city.latitude || city.Latitude);
+                    const lng = parseFloat(city.lng || city.longitude || city.Longitude);
+                    const population = parseInt(city.population || city.pop || city.Population || 100000, 10); // default pop if not available
                     
                     if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
                         validCount++;
                         const cityObj = {
-                            name: city.name || city.city || city.Name || city.City || 'Unknown',
+                            name: city.city || city.name || city.city_ascii || city.City || 'Unknown',
                             lat: lat,
                             lng: lng,
                             population: population
@@ -300,7 +291,12 @@
                     }
                 });
                 
-                console.log(`Valid cities: ${validCount}`);
+                // If parsing failed, fall back to generated dataset
+                if (validCount === 0) {
+                    document.getElementById('loading').textContent = 'Loading alternative dataset...';
+                    loadAlternativeCityData();
+                    return;
+                }
                 
                 // Create heatmap
                 if (heatData.length > 0) {
@@ -308,7 +304,6 @@
                 }
                 
                 document.getElementById('loading').classList.add('hidden');
-                console.log(`Spatial index built with ${spatialIndex.cities.length} cities`);
             }).catch(error => {
                 console.error('Error loading city data:', error);
                 // Update loading message to inform user
@@ -435,12 +430,7 @@
             const radiusMeters = circle.getRadius();
             const radiusKm = radiusMeters / 1000;
             
-            console.log(`Circle center: [${center.lat}, ${center.lng}], radius: ${radiusKm}km`);
-            console.log(`Spatial index has ${spatialIndex.cities.length} cities`);
-            
             const cities = spatialIndex.getCitiesInRadius(center.lat, center.lng, radiusKm);
-            
-            console.log(`Found ${cities.length} cities in circle`);
             
             let totalPop = 0;
             cities.forEach(city => {
@@ -498,27 +488,22 @@
         
         // Handle circle creation
         map.on('draw:created', function(event) {
-            console.log('Draw created event fired', event);
             const layer = event.layer;
             
             if (event.layerType === 'circle') {
-                console.log('Circle created');
                 drawnItems.addLayer(layer);
                 drawnCircles.set(layer._leaflet_id, layer);
-                console.log(`Total circles: ${drawnCircles.size}`);
                 recalculateAllCircles();
             }
         });
         
         // Handle circle editing
         map.on('draw:edited', function(event) {
-            console.log('Draw edited event fired');
             recalculateAllCircles();
         });
         
         // Handle circle deletion
         map.on('draw:deleted', function(event) {
-            console.log('Draw deleted event fired');
             const layers = event.layers;
             layers.eachLayer(function(layer) {
                 drawnCircles.delete(layer._leaflet_id);
